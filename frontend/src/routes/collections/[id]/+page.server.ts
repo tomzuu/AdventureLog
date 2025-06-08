@@ -13,10 +13,10 @@ export const load = (async (event) => {
 		}
 	});
 	if (!request.ok) {
-		console.error('Failed to fetch adventure ' + id.id);
+		console.error('Failed to fetch collection ' + id.id);
 		return {
 			props: {
-				adventure: null
+				collection: null
 			}
 		};
 	} else {
@@ -24,7 +24,7 @@ export const load = (async (event) => {
 
 		return {
 			props: {
-				adventure: collection
+				collection
 			}
 		};
 	}
