@@ -38,7 +38,7 @@ export const load = (async (event) => {
 
 		return {
 			props: {
-				collections,
+				adventures: collections,
 				next,
 				previous,
 				count
@@ -243,7 +243,7 @@ export const actions: Actions = {
 		}
 
 		return {
-			collections,
+			adventures: collections,
 			next,
 			previous,
 			count
