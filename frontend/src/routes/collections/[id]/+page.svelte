@@ -1,92 +1,139 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import type { Adventure, Collection } from '$lib/types';
-  
-  // Assuming you created ImageGallery.svelte in this path
-  import ImageGallery from '$lib/components/ImageGallery.svelte'; 
+	import type { Adventure, Checklist, Collection, Lodging, Note, Transportation } from '$lib/types';
+	import { onMount, onDestroy } from 'svelte';
+	import type { PageData } from './$types';
+	import { marked } from 'marked';
 
-  export let data: PageData;
+	import { t } from 'svelte-i18n';
 
-  // Thanks to our fix in +page.server.ts, we now correctly receive a 'collection' prop
-  let collection: Collection | null = data.props.collection;
+	// @ts-ignore
+	import Calendar from '@event-calendar/core';
+	// @ts-ignore
+	import TimeGrid from '@event-calendar/time-grid';
+	// @ts-ignore
+	import DayGrid from '@event-calendar/day-grid';
 
-  // Page-level state to manage the gallery
-  let isGalleryOpen = false;
-  let galleryImages: Adventure['images'] = [];
-  let galleryStartIndex = 0;
+	import Plus from '~icons/mdi/plus';
+	import AdventureCard from '$lib/components/AdventureCard.svelte';
+	import AdventureLink from '$lib/components/AdventureLink.svelte';
+	import NotFound from '$lib/components/NotFound.svelte';
+	import { DefaultMarker, MapLibre, Marker, Popup, LineLayer, GeoJSON } from 'svelte-maplibre';
+	import TransportationCard from '$lib/components/TransportationCard.svelte';
+	import NoteCard from '$lib/components/NoteCard.svelte';
+	import NoteModal from '$lib/components/NoteModal.svelte';
 
-  /**
-   * Opens the gallery with the specified images and starting index.
-   * @param {Adventure['images']} images - The array of images for an adventure.
-   * @param {number} index - The index of the image that was clicked.
-   */
-  function openGallery(images: Adventure['images'], index: number) {
-    galleryImages = images;
-    galleryStartIndex = index;
-    isGalleryOpen = true;
-  }
+	import {
+		groupAdventuresByDate,
+		groupNotesByDate,
+		groupTransportationsByDate,
+		groupChecklistsByDate,
+		osmTagToEmoji,
+		groupLodgingByDate,
+		LODGING_TYPES_ICONS
+	} from '$lib';
+	import ChecklistCard from '$lib/components/ChecklistCard.svelte';
+	import ChecklistModal from '$lib/components/ChecklistModal.svelte';
+	import AdventureModal from '$lib/components/AdventureModal.svelte';
+	import TransportationModal from '$lib/components/TransportationModal.svelte';
+	import CardCarousel from '$lib/components/CardCarousel.svelte';
+	import { goto } from '$app/navigation';
+	import LodgingModal from '$lib/components/LodgingModal.svelte';
+	import LodgingCard from '$lib/components/LodgingCard.svelte';
+	import ImageGallery from '$lib/components/ImageGallery.svelte'; // 1. Import the gallery component
 
-  /**
-   * Closes the image gallery.
-   */
-  function closeGallery() {
-    isGalleryOpen = false;
-  }
+	export let data: PageData;
+	
+	// 2. Add state management for the gallery
+	let isGalleryOpen = false;
+	let galleryImages: Adventure['images'] = [];
+	let galleryStartIndex = 0;
+
+	function openGallery(event: CustomEvent<{ images: Adventure['images']; index: number }>) {
+		galleryImages = event.detail.images;
+		galleryStartIndex = event.detail.index;
+		isGalleryOpen = true;
+	}
+
+	function closeGallery() {
+		isGalleryOpen = false;
+	}
+
+	// The rest of your existing script block...
+	// ...
 </script>
 
-<div class="container mx-auto p-4 md:p-8">
-  {#if collection}
-    <div class="prose max-w-none mb-8">
-      <h1>{collection.name}</h1>
-      <p>{collection.description || 'No description for this collection.'}</p>
-    </div>
+{#if currentView == 'all'}
+		{#if adventures.length > 0}
+			<h1 class="text-center font-bold text-4xl mt-4 mb-2">{$t('adventures.linked_adventures')}</h1>
 
-    <h2 class="text-2xl font-bold mb-6 border-b pb-2">Linked Adventures</h2>
+			<div class="flex flex-wrap gap-4 mr-4 justify-center content-center">
+				{#each adventures as adventure}
+                    <div on:openGallery={openGallery}>
+						<AdventureCard
+							user={data.user}
+							on:edit={editAdventure}
+							on:delete={deleteAdventure}
+							{adventure}
+							{collection}
+						/>
+					</div>
+				{/each}
+			</div>
+		{/if}
 
-    {#if collection.adventures && collection.adventures.length > 0}
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        
-        {#each collection.adventures as adventure (adventure.id)}
-          <div class="card card-compact bg-base-100 shadow-lg hover:shadow-2xl transition-shadow">
-            
-            {#if adventure.images && adventure.images.length > 0}
-              <figure class="relative">
-                <img
-                  src={adventure.images[0].image}
-                  alt="Primary image for {adventure.name}"
-                  class="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                  on:click={() => openGallery(adventure.images, 0)}
-                  on:keydown={(e) => e.key === 'Enter' && openGallery(adventure.images, 0)}
-                  tabindex="0"
-                />
-                {#if adventure.images.length > 1}
-                   <div class="absolute bottom-2 right-2 badge badge-neutral">
-                     {adventure.images.length} photos
-                   </div>
-                {/if}
-              </figure>
-            {/if}
+        {/if}
 
-            <div class="card-body">
-              <h3 class="card-title">{adventure.name}</h3>
-              <p class="text-sm opacity-70">{adventure.location || 'No location specified'}</p>
-            </div>
-          </div>
-        {/each}
-
-      </div>
-    {:else}
-      <p>This collection has no linked adventures yet.</p>
-    {/if}
-  {:else}
-    <p>Loading collection details...</p>
-  {/if}
-</div>
+    {#if collection.start_date && collection.end_date}
+		{#if currentView == 'itinerary'}
+            {#if currentItineraryView == 'date'}
+				{#each Array(numberOfDays) as _, i}
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+									{#if dayAdventures.length > 0}
+										{#each dayAdventures as adventure}
+                                            <div on:openGallery={openGallery}>
+												<AdventureCard
+													user={data.user}
+													on:edit={editAdventure}
+													on:delete={deleteAdventure}
+													{adventure}
+													{collection}
+												/>
+											</div>
+										{/each}
+									{/if}
+                                    </div>
+                        {/each}
+                {:else}
+				<ul class="relative">
+								{#each orderedItems as orderedItem, index}
+									<li class="relative pl-20 mb-8">
+										<div class="bg-base-200 p-6 rounded-lg shadow-lg">
+                                            {#if orderedItem.type === 'adventure' && orderedItem.item && 'images' in orderedItem.item}
+                                                <div on:openGallery={openGallery}>
+													<AdventureCard
+														user={data.user}
+														on:edit={editAdventure}
+														on:delete={deleteAdventure}
+														adventure={orderedItem.item}
+														{collection}
+													/>
+												</div>
+											{:else if orderedItem.type === 'transportation' && orderedItem.item && 'origin_latitude' in orderedItem.item}
+                                                {/if}
+										</div>
+									</li>
+								{/each}
+							</ul>
+                            </div>
+					</div>
+			{/if}
+		{/if}
+	{/if}
 
 {#if isGalleryOpen}
-  <ImageGallery
-    images={galleryImages}
-    startIndex={galleryStartIndex}
-    on:close={closeGallery}
-  />
+	<ImageGallery
+		images={galleryImages}
+		startIndex={galleryStartIndex}
+		on:close={closeGallery}
+	/>
 {/if}
