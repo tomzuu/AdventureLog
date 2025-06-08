@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 const PUBLIC_SERVER_URL = process.env['PUBLIC_SERVER_URL'];
-import type { Adventure, Collection } from '$lib/types';
+import type { Collection } from '$lib/types';
 
 import type { Actions, RequestEvent } from '@sveltejs/kit';
 import { fetchCSRFToken } from '$lib/index.server';
@@ -16,7 +16,7 @@ export const load = (async (event) => {
 		let next = null;
 		let previous = null;
 		let count = 0;
-		let adventures: Adventure[] = [];
+		let collections: Collection[] = [];
 		let sessionId = event.cookies.get('sessionid');
 		let initialFetch = await fetch(`${serverEndpoint}/api/collections/?order_by=updated_at`, {
 			headers: {
@@ -25,20 +25,20 @@ export const load = (async (event) => {
 			credentials: 'include'
 		});
 		if (!initialFetch.ok) {
-			console.error('Failed to fetch visited adventures');
+			console.error('Failed to fetch collections');
 			return redirect(302, '/login');
 		} else {
 			let res = await initialFetch.json();
-			let visited = res.results as Adventure[];
+			let results = res.results as Collection[];
 			next = res.next;
 			previous = res.previous;
 			count = res.count;
-			adventures = [...adventures, ...visited];
+			collections = [...collections, ...results];
 		}
 
 		return {
 			props: {
-				adventures,
+				collections,
 				next,
 				previous,
 				count
@@ -208,9 +208,7 @@ export const actions: Actions = {
 		const order_direction = formData.get('order_direction') as string;
 		const order_by = formData.get('order_by') as string;
 
-		// console.log(order_direction, order_by);
-
-		let adventures: Adventure[] = [];
+		let collections: Collection[] = [];
 
 		if (!event.locals.user) {
 			return {
@@ -233,20 +231,19 @@ export const actions: Actions = {
 			}
 		);
 		if (!collectionsFetch.ok) {
-			console.error('Failed to fetch visited adventures');
+			console.error('Failed to fetch collections');
 			return redirect(302, '/login');
 		} else {
 			let res = await collectionsFetch.json();
-			let visited = res.results as Adventure[];
+			let results = res.results as Collection[];
 			next = res.next;
 			previous = res.previous;
 			count = res.count;
-			adventures = [...adventures, ...visited];
-			// console.log(next, previous, count);
+			collections = [...collections, ...results];
 		}
 
 		return {
-			adventures,
+			collections,
 			next,
 			previous,
 			count
@@ -309,7 +306,7 @@ export const actions: Actions = {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 			const data = await response.json();
-			let adventures = data.results as Adventure[];
+			let collections = data.results as Collection[];
 			let next = data.next;
 			let previous = data.previous;
 			let count = data.count;
@@ -317,7 +314,7 @@ export const actions: Actions = {
 			return {
 				status: 200,
 				body: {
-					adventures,
+					collections,
 					next,
 					previous,
 					count,
