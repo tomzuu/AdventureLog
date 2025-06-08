@@ -69,7 +69,8 @@ class ReverseGeocodeViewSet(viewsets.ViewSet):
     def reverse_geocode(self, request):
         lat = request.query_params.get('lat', '')
         lon = request.query_params.get('lon', '')
-        url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
+        lang = request.COOKIES.get('locale', 'en')
+        url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&accept-language={lang}"
         headers = {'User-Agent': 'AdventureLog Server'}
         response = requests.get(url, headers=headers)
         try:
@@ -86,6 +87,7 @@ class ReverseGeocodeViewSet(viewsets.ViewSet):
         new_city_count = 0
         new_cities = {}
         adventures = Adventure.objects.filter(user_id=self.request.user)
+        lang = request.COOKIES.get('locale', 'en')
         serializer = AdventureSerializer(adventures, many=True)
         for adventure, serialized_adventure in zip(adventures, serializer.data):
             if serialized_adventure['is_visited'] == True:
@@ -93,7 +95,7 @@ class ReverseGeocodeViewSet(viewsets.ViewSet):
                 lon = adventure.longitude
                 if not lat or not lon:
                     continue
-                url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}"
+                url = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&accept-language={lang}"
                 headers = {'User-Agent': 'AdventureLog Server'}
                 response = requests.get(url, headers=headers)
                 try:
