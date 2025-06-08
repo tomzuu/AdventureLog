@@ -3,7 +3,7 @@ from django.db import transaction
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q, Max
 from django.db.models.functions import Lower
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from adventures.models import Adventure, Category, Transportation, Lodging
@@ -126,12 +126,15 @@ class AdventureViewSet(viewsets.ModelViewSet):
         if not request.user.is_authenticated:
             return Response({"error": "User is not authenticated"}, status=400)
 
-        include_collections = request.query_params.get('include_collections', 'false') == 'true'
-        queryset = Adventure.objects.filter(
-            Q(is_public=True) | Q(user_id=request.user.id),
-            collection=None if not include_collections else Q()
+        # The manager handles all the logic for what adventures a user can see
+        queryset = Adventure.objects.retrieve_adventures(
+            user=request.user,
+            include_owned=True,
+            include_shared=True,
+            include_public=True
         )
 
+        # apply_sorting will filter based on the 'include_collections' query param
         queryset = self.apply_sorting(queryset)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
