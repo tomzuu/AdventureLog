@@ -77,6 +77,11 @@ export const actions: Actions = {
 			domain: cookieDomain // Undefined for IP addresses, used for domain names
 		});
 
+		// Delete the locale cookie
+		event.cookies.delete('locale', {
+			path: '/'
+		});
+
 		if (res.status === 401) {
 			return redirect(302, '/login');
 		} else {

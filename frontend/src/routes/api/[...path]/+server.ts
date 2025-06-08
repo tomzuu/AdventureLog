@@ -52,6 +52,7 @@ async function handleRequest(
 	targetUrl += searchParam; // This will add ?format=json or &format=json to the URL
 
 	const headers = new Headers(request.headers);
+	const incomingCookie = headers.get('cookie') || '';
 
 	// Delete existing csrf cookie by setting an expired date
 	cookies.delete('csrftoken', { path: '/' });
@@ -63,7 +64,7 @@ async function handleRequest(
 	}
 
 	// Set the new csrf token in both headers and cookies
-	const cookieHeader = `csrftoken=${csrfToken}; Path=/; HttpOnly; SameSite=Lax`;
+	const cookieHeader = [incomingCookie, `csrftoken=${csrfToken}`].filter(Boolean).join('; ');
 
 	try {
 		const response = await fetch(targetUrl, {
